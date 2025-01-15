@@ -1,0 +1,6 @@
+---
+- name: Prepare every node
+  hosts: all
+  become: true
+  roles:
+    - common

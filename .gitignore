@@ -1,0 +1,4 @@
+*.retry
+.vagrant/
+inventory/hosts.yml
+admin.conf

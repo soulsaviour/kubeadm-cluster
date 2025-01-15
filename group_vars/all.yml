@@ -1,0 +1,4 @@
+---
+# Address other nodes use to reach this one. Matters on machines with more
+# than one NIC (Vagrant, multi-homed hosts).
+node_ip: "{{ ansible_host }}"

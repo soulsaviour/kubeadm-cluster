@@ -1,0 +1,17 @@
+---
+# Copy to inventory/hosts.yml and adjust. One control-plane node is enough to
+# start; add more (behind a load balancer) for an HA control plane.
+all:
+  children:
+    control_plane:
+      hosts:
+        cp1:
+          ansible_host: 192.168.56.10
+    workers:
+      hosts:
+        worker1:
+          ansible_host: 192.168.56.21
+        worker2:
+          ansible_host: 192.168.56.22
+  vars:
+    ansible_user: ubuntu
