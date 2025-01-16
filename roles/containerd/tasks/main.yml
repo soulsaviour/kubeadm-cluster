@@ -1,0 +1,49 @@
+---
+- name: Add Docker's apt repository for containerd
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: "https://download.docker.com/linux/{{ ansible_distribution | lower }}"
+    suites: "{{ ansible_distribution_release }}"
+    components: stable
+    signed_by: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+
+- name: Install containerd
+  ansible.builtin.apt:
+    name: "{{ containerd_package }}"
+    state: present
+    update_cache: true
+
+# The packaged config disables the CRI plugin, which Kubernetes needs, and
+# has no runtime settings. If that's what's there, replace it with
+# containerd's full default config.
+- name: Check whether the config has runtime settings
+  ansible.builtin.command: grep -q SystemdCgroup /etc/containerd/config.toml
+  register: containerd_config_check
+  changed_when: false
+  failed_when: false
+
+- name: Write containerd's default config
+  ansible.builtin.shell: containerd config default > /etc/containerd/config.toml
+  when: containerd_config_check.rc != 0
+  changed_when: true
+  notify: Restart containerd
+
+# kubelet and the runtime must agree on the cgroup driver; systemd is the
+# recommended one on systemd hosts.
+- name: Use the systemd cgroup driver
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: 'SystemdCgroup = false'
+    replace: 'SystemdCgroup = true'
+  notify: Restart containerd
+
+- name: Confirm the systemd cgroup driver is set
+  ansible.builtin.command: grep -q 'SystemdCgroup = true' /etc/containerd/config.toml
+  changed_when: false
+
+- name: Enable and start containerd
+  ansible.builtin.systemd_service:
+    name: containerd
+    enabled: true
+    state: started
