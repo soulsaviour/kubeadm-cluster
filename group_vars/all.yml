@@ -2,3 +2,9 @@
 # Address other nodes use to reach this one. Matters on machines with more
 # than one NIC (Vagrant, multi-homed hosts).
 node_ip: "{{ ansible_host }}"
+
+# Kubernetes minor version (selects the pkgs.k8s.io repository) and the exact
+# package version to install. Upgrades are deliberate: bump both, then follow
+# the kubeadm upgrade procedure.
+kubernetes_minor: "1.37"
+kubernetes_package_version: "1.37.2-1.1"
