@@ -1,0 +1,41 @@
+---
+- name: Write the kubeadm configuration
+  ansible.builtin.template:
+    src: kubeadm-config.yaml.j2
+    dest: /etc/kubernetes/kubeadm-config.yaml
+    mode: "0600"
+
+- name: Check whether the cluster is already initialised
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: control_plane_admin_conf
+
+# --upload-certs stores the control-plane certificates (encrypted) in the
+# cluster, so more control-plane nodes can join later without copying files.
+- name: Initialise the control plane
+  ansible.builtin.command: kubeadm init --config /etc/kubernetes/kubeadm-config.yaml --upload-certs
+  when: not control_plane_admin_conf.stat.exists
+  changed_when: true
+
+- name: Create a kubeconfig directory for {{ ansible_user }}
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.kube"
+    state: directory
+    owner: "{{ ansible_user }}"
+    mode: "0700"
+
+- name: Give the admin kubeconfig to {{ ansible_user }}
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "/home/{{ ansible_user }}/.kube/config"
+    remote_src: true
+    owner: "{{ ansible_user }}"
+    mode: "0600"
+
+- name: Wait for the API server
+  ansible.builtin.command: kubectl --kubeconfig /etc/kubernetes/admin.conf get --raw /readyz
+  register: control_plane_readyz
+  until: control_plane_readyz.rc == 0
+  retries: 30
+  delay: 5
+  changed_when: false

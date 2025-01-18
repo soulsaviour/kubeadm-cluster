@@ -8,3 +8,11 @@ node_ip: "{{ ansible_host }}"
 # the kubeadm upgrade procedure.
 kubernetes_minor: "1.37"
 kubernetes_package_version: "1.37.2-1.1"
+
+pod_network_cidr: 10.244.0.0/16
+service_cidr: 10.96.0.0/12
+
+# Stable address for the API server. For a single control-plane node this can
+# stay empty (the node's own address is used). For HA, point it at a load
+# balancer in front of every control-plane node, e.g. "k8s-api.example.com:6443".
+control_plane_endpoint: ""
