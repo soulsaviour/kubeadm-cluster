@@ -12,3 +12,4 @@
   become: true
   roles:
     - control_plane
+    - cni

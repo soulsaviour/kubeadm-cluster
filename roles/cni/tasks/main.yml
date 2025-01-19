@@ -1,0 +1,28 @@
+---
+# Server-side apply: the operator's CRDs are too large for the annotation
+# client-side apply would add.
+- name: Install the Tigera operator
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf apply --server-side
+    -f https://raw.githubusercontent.com/projectcalico/calico/{{ cni_calico_version }}/manifests/tigera-operator.yaml
+  register: cni_operator
+  changed_when: "'serverside-applied' in cni_operator.stdout and 'unchanged' not in cni_operator.stdout"
+
+- name: Wait for the operator's CRDs
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf wait --for condition=established
+    --timeout=120s crd/installations.operator.tigera.io crd/apiservers.operator.tigera.io
+  changed_when: false
+
+- name: Write the Calico installation
+  ansible.builtin.template:
+    src: calico-installation.yaml.j2
+    dest: /etc/kubernetes/calico-installation.yaml
+    mode: "0644"
+
+- name: Apply the Calico installation
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf apply
+    -f /etc/kubernetes/calico-installation.yaml
+  register: cni_installation
+  changed_when: "'unchanged' not in cni_installation.stdout"
