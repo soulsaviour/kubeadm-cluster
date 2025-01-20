@@ -13,3 +13,9 @@
   roles:
     - control_plane
     - cni
+
+- name: Join the workers
+  hosts: workers
+  become: true
+  roles:
+    - join
