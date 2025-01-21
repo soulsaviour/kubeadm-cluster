@@ -17,3 +17,41 @@
     - not join_kubelet_conf.stat.exists
     - inventory_hostname in groups['workers']
   changed_when: true
+
+# Control-plane nodes also need the certificates uploaded by kubeadm init.
+# The key decrypting them is valid for two hours, so fetch a fresh one.
+- name: Get a certificate key for control-plane joins
+  ansible.builtin.command: kubeadm init phase upload-certs --upload-certs
+  delegate_to: "{{ groups['control_plane'][0] }}"
+  register: join_upload_certs
+  changed_when: true
+  when:
+    - not join_kubelet_conf.stat.exists
+    - inventory_hostname in groups['control_plane']
+
+- name: Join the cluster as a control-plane node
+  ansible.builtin.command: >-
+    {{ join_command.stdout }} --control-plane
+    --certificate-key {{ join_upload_certs.stdout_lines | last }}
+    --apiserver-advertise-address {{ node_ip }}
+  when:
+    - not join_kubelet_conf.stat.exists
+    - inventory_hostname in groups['control_plane']
+  changed_when: true
+
+- name: Create a kubeconfig directory on control-plane nodes
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.kube"
+    state: directory
+    owner: "{{ ansible_user }}"
+    mode: "0700"
+  when: inventory_hostname in groups['control_plane']
+
+- name: Give the admin kubeconfig to {{ ansible_user }}
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "/home/{{ ansible_user }}/.kube/config"
+    remote_src: true
+    owner: "{{ ansible_user }}"
+    mode: "0600"
+  when: inventory_hostname in groups['control_plane']

@@ -1,4 +1,16 @@
 ---
+- name: Check the inventory
+  hosts: control_plane[0]
+  gather_facts: false
+  tasks:
+    - name: Require a shared API endpoint for more than one control-plane node
+      ansible.builtin.assert:
+        that: groups['control_plane'] | length == 1 or control_plane_endpoint | length > 0
+        fail_msg: >-
+          Set control_plane_endpoint to a load balancer in front of all
+          control-plane nodes when running more than one.
+        quiet: true
+
 - name: Prepare every node
   hosts: all
   become: true
@@ -13,6 +25,14 @@
   roles:
     - control_plane
     - cni
+
+# etcd adds members one at a time, so control-plane nodes join serially.
+- name: Join the remaining control-plane nodes
+  hosts: control_plane[1:]
+  serial: 1
+  become: true
+  roles:
+    - join
 
 - name: Join the workers
   hosts: workers
