@@ -1,0 +1,34 @@
+---
+# Removes Kubernetes from every node in the inventory. Asks for confirmation
+# unless run with -e force=true.
+- name: Confirm the reset
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Ask for confirmation
+      ansible.builtin.pause:
+        prompt: "This wipes Kubernetes from {{ groups['all'] | length }} nodes. Type 'yes' to continue"
+      register: reset_confirmation
+      when: not (force | default(false) | bool)
+
+    - name: Stop unless confirmed
+      ansible.builtin.assert:
+        that: (force | default(false) | bool) or reset_confirmation.user_input == 'yes'
+        fail_msg: Aborted.
+
+- name: Reset Kubernetes on every node
+  hosts: all
+  become: true
+  tasks:
+    - name: Run kubeadm reset
+      ansible.builtin.command: kubeadm reset --force
+      changed_when: true
+
+    - name: Remove what kubeadm reset leaves behind
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/cni/net.d
+        - /root/.kube
+        - "/home/{{ ansible_user }}/.kube"

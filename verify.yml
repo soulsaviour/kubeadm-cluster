@@ -1,0 +1,35 @@
+---
+# Smoke test: every node Ready, system pods running, Calico healthy, and DNS
+# resolving from inside a pod.
+- name: Verify the cluster
+  hosts: control_plane[0]
+  become: true
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  tasks:
+    - name: Wait for every node to be Ready
+      ansible.builtin.command: kubectl wait --for=condition=Ready nodes --all --timeout=300s
+      changed_when: false
+
+    - name: Wait for Calico to report Available
+      ansible.builtin.command: kubectl wait --for=condition=Available tigerastatus/calico --timeout=300s
+      changed_when: false
+
+    - name: Wait for kube-system pods
+      ansible.builtin.command: kubectl -n kube-system wait --for=condition=Ready pods --all --timeout=300s
+      changed_when: false
+
+    - name: Resolve the API service name from a pod
+      ansible.builtin.command: >-
+        kubectl run dns-check --image=busybox:1.37 --restart=Never --rm -i --quiet
+        -- nslookup kubernetes.default.svc.cluster.local
+      changed_when: false
+
+    - name: List nodes
+      ansible.builtin.command: kubectl get nodes -o wide
+      register: verify_nodes
+      changed_when: false
+
+    - name: Show nodes
+      ansible.builtin.debug:
+        var: verify_nodes.stdout_lines
